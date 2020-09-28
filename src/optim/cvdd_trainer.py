@@ -23,7 +23,10 @@ class CVDDTrainer(BaseTrainer):
 
 
     def project_lambda(self,ll):
-        ll=np.where(ll < 0.5 ,0,1)
+        zero_vec=torch.zeros(ll.shape[0],1)
+        alpha_vec=torch.ones(ll.shape[0],1) * self.alpha
+        ll=torch.where(ll<0,zero_vec,ll)
+        ll=torch.where(ll> self.alpha,alpha_vec,ll)
         return ll
 
     def compute_loss(self,betak,lambdai,membership,concat_M):
@@ -47,20 +50,22 @@ class CVDDTrainer(BaseTrainer):
         n_attention_heads = net.n_attention_heads
 
         # Get train data loader
-        train_loader, _ = dataset.loaders(batch_size=7769, num_workers=self.n_jobs_dataloader)
+        data_loader= dataset.loaders(num_workers=self.n_jobs_dataloader)
 
         # Define outlier vector
-        lambdai=torch.nn.Parameter(torch.rand(7769,1)*self.alpha).to(self.device)
+        lambdai=torch.nn.Parameter(torch.rand(len(data_loader.dataset),1)*self.alpha).to(self.device)
 
         # Define cluster weight vector
         betak=torch.rand(clusters,1)
 
         # Set parameters and optimizer (Adam optimizer for now)
         parameters = filter(lambda p: p.requires_grad, net.parameters())
-        optimizer = optim.Adam(parameters, lr=self.lr, weight_decay=self.weight_decay)
+        optimizer_max = optim.Adam([lambdai], lr=self.lr, weight_decay=self.weight_decay)
+        optimizer_min = optim.Adam(parameters, lr=self.lr, weight_decay=self.weight_decay)
 
         # Set learning rate scheduler
-        scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=self.lr_milestones, gamma=0.1)
+        scheduler_max = optim.lr_scheduler.MultiStepLR(optimizer_max, milestones=self.lr_milestones, gamma=0.1)
+        scheduler_min = optim.lr_scheduler.MultiStepLR(optimizer_min, milestones=self.lr_milestones, gamma=0.1)
 
         # Training
         logger.info('Starting training...')
@@ -72,7 +77,9 @@ class CVDDTrainer(BaseTrainer):
 
         for epoch in range(self.n_epochs):
 
-            scheduler.step()
+            scheduler_max.step()
+            scheduler_min.step()
+
             if epoch in self.lr_milestones:
                 logger.info('  LR scheduler: new learning rate is %g' % float(scheduler.get_lr()[0]))
 
@@ -80,13 +87,13 @@ class CVDDTrainer(BaseTrainer):
             n_batches = 0
             epoch_start_time = time.time()
 
-            for data in train_loader:
+            for data in data_loader:
                 _, text_batch, label_batch, _ = data
                 text_batch = text_batch.to(self.device)
                 # text_batch.shape = (sentence_length, batch_size)
 
                 # Zero the network parameter gradients
-                optimizer.zero_grad()
+                optimizer_max.zero_grad()
 
                 # Update network parameters via backpropagation: forward + backward + optimize
 
@@ -97,22 +104,18 @@ class CVDDTrainer(BaseTrainer):
                 # A.shape = (batch_size, n_attention_heads, sentence_length)
                 # concat_M.shape = (batch_size, n_attention_heads*hidden embedding)
 
-                # get orthogonality penalty: P = (AAT - I)
-                I = torch.eye(n_attention_heads).to(self.device)
-                AAT = A @ A.transpose(1, 2)
-                P = torch.mean((AAT.squeeze() - I) ** 2)
-
                 # compute loss
-                loss_P = self.lambda_p * P
                 loss_1_2,loss_3 = self.compute_loss(betak,lambdai,membership,concat_M)
-                lossmax = loss_3-loss_P-loss_1_2
+                lossmax = loss_3-loss_1_2
 
                 lossmax.backward()
                 torch.nn.utils.clip_grad_norm_(net.parameters(), 0.5)  # clip gradient norms in [-0.5, 0.5]
-                optimizer.step()
+                optimizer_max.step()
 
-                  # Zero the network parameter gradients
-                optimizer.zero_grad()
+                lambdai=self.project_lambda(lambdai)
+
+                #Zero the network parameter gradients
+                optimizer_min.zero_grad()
 
                 # Update network parameters via backpropagation: forward + backward + optimize
 
@@ -135,7 +138,7 @@ class CVDDTrainer(BaseTrainer):
 
                 lossmin.backward()
                 torch.nn.utils.clip_grad_norm_(net.parameters(), 0.5)  # clip gradient norms in [-0.5, 0.5]
-                optimizer.step()
+                optimizer_min.step()
 
                 epoch_loss += lossmax.item()+lossmin.item()
                 n_batches += 1
@@ -151,9 +154,6 @@ class CVDDTrainer(BaseTrainer):
         # Log results
         logger.info('Training Time: {:.3f}s'.format(self.train_time))
         logger.info('Finished training.')
-
-        # AUC
-        print(roc_auc_score(np.array(labels).flatten(),np.array(lambdas).flatten()))
 
         return net
 

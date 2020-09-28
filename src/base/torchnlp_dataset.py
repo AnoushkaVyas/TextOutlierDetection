@@ -13,20 +13,13 @@ class TorchnlpDataset(BaseADDataset):
         super().__init__(root)
         self.encoder = None  # encoder of class Encoder() from torchnlp
 
-    def loaders(self, batch_size: int, shuffle_train=False, shuffle_test=False, num_workers: int = 0) -> (
-            DataLoader, DataLoader):
+    def loaders(self, shuffle_data=False, num_workers: int = 0) -> (
+            DataLoader):
 
-        # Use BucketSampler for sampling
-        train_sampler = BucketBatchSampler(self.train_set, batch_size=batch_size, drop_last=True,
-                                           sort_key=lambda r: len(r['text']))
-        test_sampler = BucketBatchSampler(self.test_set, batch_size=batch_size, drop_last=True,
-                                          sort_key=lambda r: len(r['text']))
+        data_loader = DataLoader(dataset=self.data, batch_size=len(self.data), collate_fn=collate_fn,
+                                  num_workers=num_workers,shuffle=shuffle_data)
 
-        train_loader = DataLoader(dataset=self.train_set, batch_sampler=train_sampler, collate_fn=collate_fn,
-                                  num_workers=num_workers)
-        test_loader = DataLoader(dataset=self.test_set, batch_sampler=test_sampler, collate_fn=collate_fn,
-                                 num_workers=num_workers)
-        return train_loader, test_loader
+        return data_loader
 
 
 def collate_fn(batch):
@@ -38,6 +31,7 @@ def collate_fn(batch):
     text_batch, _ = stack_and_pad_tensors([row['text'] for row in batch])
     label_batch = torch.stack([row['label'] for row in batch])
     weights = [row['weight'] for row in batch]
+
     # check if weights are empty
     if weights[0].nelement() == 0:
         weight_batch = torch.empty(0)

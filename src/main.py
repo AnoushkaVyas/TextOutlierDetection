@@ -51,15 +51,15 @@ from datasets.main import load_dataset
               help='Number of workers for data loading. 0 means that the data will be loaded in the main process.')
 @click.option('--n_threads', type=int, default=4,
               help='Sets the number of OpenMP threads used for parallelizing CPU operations')
-@click.option('--normal_class', type=int, default=0,
-              help='Specify the normal class of the dataset (all other classes are considered anomalous).')
+@click.option('--outlier_class', type=int, default=0,
+              help='Specify the outlier class of the dataset (all other classes are considered normal).')
 @click.option('--clusters', type=int, default=4,
               help='Specify the number of clusters in the dataset.')
 
 def main(dataset_name, net_name, xp_path, data_path, load_config, load_model, device, seed, tokenizer, clean_txt,
          embedding_size, pretrained_model,  n_attention_heads, attention_size, lambda_p, alpha,
          optimizer_name, lr, n_epochs, lr_milestone,weight_decay, n_jobs_dataloader, n_threads,
-         normal_class,clusters):
+         outlier_class,clusters):
     """
     Context Vector Data Description (CVDD): An unsupervised anomaly detection method for text.
 
@@ -90,7 +90,7 @@ def main(dataset_name, net_name, xp_path, data_path, load_config, load_model, de
 
     # Print experimental setup
     logger.info('Dataset: %s' % dataset_name)
-    logger.info('Normal class: %d' % normal_class)
+    logger.info('Outlier class: %d' % outlier_class)
     logger.info('Network: %s' % net_name)
     logger.info('Tokenizer: %s' % cfg.settings['tokenizer'])
     logger.info('Clean text in pre-processing: %s' % cfg.settings['clean_txt'])
@@ -129,7 +129,7 @@ def main(dataset_name, net_name, xp_path, data_path, load_config, load_model, de
         logger.info('Number of threads used for parallelizing CPU operations: %d' % n_threads)
 
     # Load data
-    dataset = load_dataset(dataset_name, data_path, normal_class, cfg.settings['tokenizer'],
+    dataset = load_dataset(dataset_name, data_path, outlier_class, cfg.settings['tokenizer'],
                            clean_txt=cfg.settings['clean_txt'])
 
     # Initialize CVDD model and set word embedding
