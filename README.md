@@ -35,9 +35,9 @@ The following are examples on how to run experiments on
 [`IMDB Movie Reviews`](http://ai.stanford.edu/~amaas/data/sentiment/) as reported in the paper.
 
 ### Reuters-21578
-
+ ```
 cd <path-to-CVDD-PyTorch-directory>
-
+```
 # activate virtual environment
 source myenv/bin/activate  # or 'source activate myenv' for conda
 
