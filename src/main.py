@@ -5,60 +5,41 @@ import random
 import numpy as np
 
 from utils.config import Config
-from utils.visualization import plot_matrix_heatmap, plot_joyplot
-from utils.misc import print_text_samples, print_top_words, get_correlation_matrix
 from cvdd import CVDD
-from datasets.main import load_dataset
 
 
 ################################################################################
 # Settings
 ################################################################################
 @click.command()
-@click.argument('dataset_name', type=click.Choice(['reuters', 'newsgroups20', 'imdb']))
+@click.argument('dataset_name', type=click.Choice(['reuters', 'newsgroups20',]))
 @click.argument('net_name', type=click.Choice(['cvdd_Net']))
 @click.argument('xp_path', type=click.Path(exists=True))
 @click.argument('data_path', type=click.Path(exists=True))
-@click.option('--load_config', type=click.Path(exists=True), default=None,
-              help='Config JSON-file path (default: None).')
 @click.option('--load_model', type=click.Path(exists=True), default=None,
               help='Model file path (default: None).')
 @click.option('--device', type=str, default='cuda', help='Computation device to use ("cpu", "cuda", "cuda:2", etc.).')
-@click.option('--seed', type=int, default=-1, help='Set seed. If -1, use randomization.')
+@click.option('--seed', type=int, default=42, help='Set seed. If -1, use randomization.')
 @click.option('--tokenizer', default='spacy', type=click.Choice(['spacy', 'bert']), help='Select text tokenizer.')
 @click.option('--clean_txt', is_flag=True, help='Specify if text should be cleaned in a pre-processing step.')
-@click.option('--embedding_size', type=int, default=None, help='Size of the word vector embedding.')
-@click.option('--pretrained_model', default=None,
+@click.option('--embedding_size', type=int, default=300, help='Size of the word vector embedding.')
+@click.option('--pretrained_model', default='GloVe_6B',
               type=click.Choice([None, 'GloVe_6B', 'GloVe_42B', 'GloVe_840B', 'GloVe_twitter.27B', 'FastText_en',
                                  'bert']),
               help='Load pre-trained word vectors or language models to initialize the word embeddings.')
-@click.option('--n_attention_heads', type=int, default=1, help='Number of attention heads in self-attention module.')
+@click.option('--n_attention_heads', type=int, default=3, help='Number of attention heads in self-attention module.')
 @click.option('--attention_size', type=int, default=100, help='Self-attention module dimensionality.')
-@click.option('--lambda_p', type=float, default=1.0,
-              help='Hyperparameter for context vector orthogonality regularization P = (CCT - I)')
-@click.option('--alpha', default=1, type=float,
-              help='Outlier range')
-@click.option('--optimizer_name', type=click.Choice(['adam']), default='adam',
-              help='Name of the optimizer to use for training.')
-@click.option('--lr', type=float, default=0.001,
-              help='Initial learning rate for training. Default=0.001')
-@click.option('--n_epochs', type=int, default=50, help='Number of epochs to train.')
-@click.option('--lr_milestone', type=int, default=0, multiple=True,
-              help='Lr scheduler milestones at which lr is multiplied by 0.1. Can be multiple and must be increasing.')
-@click.option('--weight_decay', type=float, default=0.5e-6,
-              help='Weight decay (L2 penalty) hyperparameter.')
 @click.option('--n_jobs_dataloader', type=int, default=0,
               help='Number of workers for data loading. 0 means that the data will be loaded in the main process.')
-@click.option('--n_threads', type=int, default=4,
+@click.option('--n_threads', type=int, default=0,
               help='Sets the number of OpenMP threads used for parallelizing CPU operations')
 @click.option('--outlier_class', type=int, default=0,
-              help='Specify the outlier class of the dataset (all other classes are considered normal).')
-@click.option('--clusters', type=int, default=4,
-              help='Specify the number of clusters in the dataset.')
+              help='Specify the outlier class of the dataset (all other classes are considered anomalous).')
+@click.option('--clusters', type=int, default=10,
+              help='Number of clusters in regular data')
 
-def main(dataset_name, net_name, xp_path, data_path, load_config, load_model, device, seed, tokenizer, clean_txt,
-         embedding_size, pretrained_model,  n_attention_heads, attention_size, lambda_p, alpha,
-         optimizer_name, lr, n_epochs, lr_milestone,weight_decay, n_jobs_dataloader, n_threads,
+def main(dataset_name, net_name, xp_path, data_path, load_model, device, seed, tokenizer, clean_txt,
+         embedding_size, pretrained_model, n_attention_heads, attention_size, n_jobs_dataloader, n_threads,
          outlier_class,clusters):
     """
     Context Vector Data Description (CVDD): An unsupervised anomaly detection method for text.
@@ -91,6 +72,7 @@ def main(dataset_name, net_name, xp_path, data_path, load_config, load_model, de
     # Print experimental setup
     logger.info('Dataset: %s' % dataset_name)
     logger.info('Outlier class: %d' % outlier_class)
+    logger.info('Cluster size: %d' % clusters)
     logger.info('Network: %s' % net_name)
     logger.info('Tokenizer: %s' % cfg.settings['tokenizer'])
     logger.info('Clean text in pre-processing: %s' % cfg.settings['clean_txt'])
@@ -101,15 +83,8 @@ def main(dataset_name, net_name, xp_path, data_path, load_config, load_model, de
     # Print CVDD configuration)
     logger.info('Number of attention heads: %d' % cfg.settings['n_attention_heads'])
     logger.info('Attention size: %d' % cfg.settings['attention_size'])
-    logger.info('Orthogonality regularization hyperparameter: %.3f' % cfg.settings['lambda_p'])
-    logger.info('Outlier range: %.3f' % cfg.settings['alpha'])
-    logger.info('Number of Clusters: %.3f' % cfg.settings['clusters'])
 
-    # If specified, load experiment config from JSON-file
-    if load_config:
-        cfg.load_config(import_json=load_config)
-        logger.info('Loaded configuration from %s.' % load_config)
-
+    
     # Set seed for reproducibility
     if cfg.settings['seed'] != -1:
         random.seed(cfg.settings['seed'])
@@ -129,8 +104,7 @@ def main(dataset_name, net_name, xp_path, data_path, load_config, load_model, de
         logger.info('Number of threads used for parallelizing CPU operations: %d' % n_threads)
 
     # Load data
-    dataset = load_dataset(dataset_name, data_path, outlier_class, cfg.settings['tokenizer'],
-                           clean_txt=cfg.settings['clean_txt'])
+    dataset =torch.load(data_path)
 
     # Initialize CVDD model and set word embedding
     cvdd = CVDD()
@@ -149,13 +123,6 @@ def main(dataset_name, net_name, xp_path, data_path, load_config, load_model, de
 
     # Train model on dataset
     cvdd.train(dataset,
-               optimizer_name=cfg.settings['optimizer_name'],
-               lr=cfg.settings['lr'],
-               n_epochs=cfg.settings['n_epochs'],
-               lr_milestones=cfg.settings['lr_milestone'],
-               lambda_p=cfg.settings['lambda_p'],
-               alpha=cfg.settings['alpha'],
-               weight_decay=cfg.settings['weight_decay'],
                device=device,
                n_jobs_dataloader=n_jobs_dataloader)
 

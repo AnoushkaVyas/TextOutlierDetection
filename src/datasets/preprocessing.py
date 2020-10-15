@@ -4,12 +4,12 @@ import torch
 import numpy as np
 
 
-def compute_tfidf_weights(data,vocab_size):
-    """ Compute the Tf-idf weights (based on idf vector computed from dataset)."""
+def compute_tfidf_weights(data, vocab_size):
+    """ Compute the Tf-idf weights (based on idf vector computed from data)."""
 
     transformer = TfidfTransformer()
 
-    # fit idf vector on dataset
+    # fit idf vector on data set
     counts = np.zeros((len(data), vocab_size), dtype=np.int64)
     for i, row in enumerate(data):
         counts_sample = torch.bincount(row['text'])
@@ -18,3 +18,5 @@ def compute_tfidf_weights(data,vocab_size):
 
     for i, row in enumerate(data):
         row['weight'] = torch.tensor(tfidf[i, row['text']].toarray().astype(np.float32).flatten())
+
+  

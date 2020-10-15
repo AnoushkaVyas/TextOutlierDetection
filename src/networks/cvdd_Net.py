@@ -5,11 +5,6 @@ import torch.nn.functional as F
 from base.base_net import BaseNet
 from networks.self_attention import SelfAttention
 
-from sklearn.manifold import TSNE
-
-from matplotlib import pyplot as plt
-
-
 
 class CVDDNet(BaseNet):
 
@@ -37,15 +32,17 @@ class CVDDNet(BaseNet):
     def reset_param(self,t):
         nn.init.kaiming_normal_(t.data)
 
+
     def forward(self, x):
         # x.shape = (sentence_length, batch_size)
 
-        hidden = self.pretrained_model(x)
+        hidden = F.dropout(self.pretrained_model(x),p=0.2)
         # hidden.shape = (sentence_length, batch_size, hidden_size)
 
         M, A = self.self_attention(hidden)
         # A.shape = (batch_size, n_attention_heads, sentence_length)
         # M.shape = (batch_size, n_attention_heads, hidden_size)
+
         concat_M=M.flatten(1)
         membership = F.softmax(self.fc(concat_M), dim=1)
 

@@ -22,13 +22,13 @@ class BERT(nn.Module):
             param.requires_grad = False
 
     def forward(self, x):
-        # x.shape = (sentence_length, dataset_size,)
+        # x.shape = (sentence_length, batch_size)
 
         self.bert.eval()  # make sure bert is in eval() mode
         hidden, _ = self.bert(x.transpose(0, 1), output_all_encoded_layers=False)  # output only last layer
-        # hidden.shape = (dataset_size,, sentence_length, hidden_size)
+        # hidden.shape = (batch_size, sentence_length, hidden_size)
 
-        # Change to hidden.shape = (sentence_length, dataset_size,, hidden_size) align output with word embeddings
+        # Change to hidden.shape = (sentence_length, batch_size, hidden_size) align output with word embeddings
         hidden = hidden.transpose(0, 1)
 
         return hidden

@@ -13,12 +13,15 @@ class TorchnlpDataset(BaseADDataset):
         super().__init__(root)
         self.encoder = None  # encoder of class Encoder() from torchnlp
 
-    def loaders(self, shuffle_data=False, num_workers: int = 0) -> (
+    def loaders(self,num_workers: int = 0) -> (
             DataLoader):
 
-        data_loader = DataLoader(dataset=self.data, batch_size=len(self.data), collate_fn=collate_fn,
-                                  num_workers=num_workers,shuffle=shuffle_data)
+        data_sampler = BucketBatchSampler(self.data, batch_size=len(self.data), drop_last=True,
+                                          sort_key=lambda r: len(r['text']))
 
+        data_loader = DataLoader(dataset=self.data, batch_sampler=data_sampler,collate_fn=collate_fn,
+                                  num_workers=num_workers)
+       
         return data_loader
 
 
@@ -30,8 +33,8 @@ def collate_fn(batch):
     indices = [row['index'] for row in batch]
     text_batch, _ = stack_and_pad_tensors([row['text'] for row in batch])
     label_batch = torch.stack([row['label'] for row in batch])
+    classlabel_batch = torch.stack([row['classlabel'] for row in batch])
     weights = [row['weight'] for row in batch]
-
     # check if weights are empty
     if weights[0].nelement() == 0:
         weight_batch = torch.empty(0)
@@ -39,4 +42,4 @@ def collate_fn(batch):
         weight_batch, _ = stack_and_pad_tensors([row['weight'] for row in batch])
         weight_batch = transpose(weight_batch)
 
-    return indices, transpose(text_batch), label_batch.float(), weight_batch
+    return indices, transpose(text_batch), label_batch.float(), classlabel_batch.float(), weight_batch

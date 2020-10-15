@@ -81,7 +81,7 @@ cd src
 mkdir ../log/test_reuters
 
 # run experiment
- python3 main.py reuters cvdd_Net ../log/test_reuters ../data --device cpu --seed 1 --clean_txt --embedding_size 300 --pretrained_model GloVe_6B --n_attention_heads 3 --attention_size 150 --lambda_p 1.0 --alpha 1.0 --n_epochs 100 --lr 0.01 --lr_milestone 40  --outlier_class 4
+python main.py reuters cvdd_Net ../log/test_reuters ../data --device cpu --seed 1 --clean_txt --embedding_size 300 --pretrained_model GloVe_6B --ad_score context_dist_mean --n_attention_heads 3 --attention_size 150 --lambda_p 1.0 --alpha_scheduler logarithmic --n_epochs 100 --lr 0.01 --lr_milestone 40  --normal_class 6;
 ```
 The indexation of classes is `[0, 1, 2, 3, 4, 5, 6]` for 
 `['earn', 'acq', 'crude', 'trade', 'money-fx', 'interest', 'ship']`.
@@ -122,7 +122,7 @@ cd src
 mkdir ../log/test_imdb
 
 # run experiment
-python3 main.py imdb cvdd_Net ../log/test_imdb ../data --device cpu --seed 1 --clean_txt --embedding_size 300 --pretrained_model GloVe_42B --ad_score context_dist_mean --n_attention_heads 10 --attention_size 150 --lambda_p 10.0 --alpha_scheduler soft --n_epochs 100 --lr 0.01 --lr_milestone 40 --normal_class -1;
+python main.py imdb cvdd_Net ../log/test_imdb ../data --device cpu --seed 1 --clean_txt --embedding_size 300 --pretrained_model GloVe_42B --ad_score context_dist_mean --n_attention_heads 10 --attention_size 150 --lambda_p 10.0 --alpha_scheduler soft --n_epochs 100 --lr 0.01 --lr_milestone 40 --normal_class -1;
 ```
 
 Have a look into `main.py` for all the possible arguments and options.

@@ -13,12 +13,13 @@ class BaseADDataset(ABC):
         self.normal_classes = None  # tuple with original class labels that define the normal class
         self.outlier_classes = None  # tuple with original class labels that define the outlier class
 
-        self.data = None  # must be of type torch.utils.data.Dataset
+        self.train_set = None  # must be of type torch.utils.data.Dataset
+        self.test_set = None  # must be of type torch.utils.data.Dataset
 
     @abstractmethod
-    def loaders(self,  shuffle_data=True, num_workers: int = 0) -> (
+    def loaders(self, num_workers: int = 0) -> (
             DataLoader):
-        """Implement data loaders of type torch.utils.data.DataLoader for train_set and test_set."""
+        """Implement data loaders of type torch.utils.data.DataLoader for dataset"""
         pass
 
     def __repr__(self):

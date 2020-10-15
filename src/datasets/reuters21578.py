@@ -1,8 +1,3 @@
-import torch
-import nltk
-import random
-
-
 from base.torchnlp_dataset import TorchnlpDataset
 from torchnlp.datasets.dataset import Dataset
 from torchnlp.encoders.text import SpacyEncoder
@@ -15,6 +10,10 @@ from utils.text_encoders import MyBertTokenizer
 from utils.misc import clean_text
 from .preprocessing import compute_tfidf_weights
 
+import torch
+import nltk
+import random
+
 class Reuters_Dataset(TorchnlpDataset):
 
     def __init__(self, root: str, outlier_class=0, tokenizer='spacy', use_tfidf_weights=False, append_sos=False,
@@ -22,11 +21,20 @@ class Reuters_Dataset(TorchnlpDataset):
         super().__init__(root)
 
         self.n_classes = 2  # 0: normal, 1: outlier
-        classes = ['earn', 'acq', 'money-fx', 'grain', 'crude']
 
-        self.outlier_classes = [classes[outlier_class]]
-        del classes[outlier_class]
-        self.normal_classes = classes
+        ids={'earn':0 , 'acq' : 1, 'money-fx' : 2, 'grain': 3,'crude':4}
+
+        groups = ['earn', 'acq', 'money-fx', 'grain','crude','trade','interest','ship','dlr','money-supply','oilseed']
+
+        self.normal_classes = []
+        for i in range(5):
+            if i != outlier_class:
+                self.normal_classes.append(groups[i])
+
+        outlier=[outlier_class,5,6,7,8,9,10]
+        self.outlier_classes=[]
+        for i in range(len(outlier)):
+            self.outlier_classes.append(groups[outlier[i]])
 
         # Load the reuters dataset
         self.train_set, self.test_set = reuters_dataset(directory=root, train=True, test=True, clean_txt=clean_txt)
@@ -36,35 +44,41 @@ class Reuters_Dataset(TorchnlpDataset):
         # Pre-process
         self.data.columns.add('index')
         self.data.columns.add('weight')
+        self.data.columns.add('classlabel')
 
         data_idx= []  # for subsetting dataset
-        outlier_idx=[] 
         count_normal=0
         for i, row in enumerate(self.data):
             if any(label in self.normal_classes for label in row['label']) and (len(row['label']) == 1):
                 data_idx.append(i)
+                row['classlabel']=torch.tensor(ids[row['label'][0]])
                 row['label'] = torch.tensor(0)
                 count_normal=count_normal+1
 
-            elif any(label in self.outlier_classes for label in row['label']) and (len(row['label']) == 1):
-                outlier_idx.append(i)
-
             row['text'] = row['text'].lower()
 
-        number_of_outliers= int(0.05*count_normal)
+        number_of_outliers= int((0.01*count_normal)/0.99)
+
+        for i in range(number_of_outliers):
+            outlier_idx=[]
+            outlier_class_name=random.sample(self.outlier_classes,1)
+            for j, row in enumerate(self.data):
+                if j not in data_idx:
+                    if len(row['label']) == 1:
+                        if outlier_class_name == row['label']:
+                            outlier_idx.append(j)
+            
+            if len(outlier_idx) > 0:
+                index=random.sample(outlier_idx,1)[0]
+                self.data[index]['label']=torch.tensor(1)
+                self.data[index]['classlabel']=torch.tensor(5)
+                data_idx.append(index)
         
-        outlier_idx=sorted(random.sample(outlier_idx,number_of_outliers))
-
-        for i in range(len(outlier_idx)):
-            self.data[outlier_idx[i]]['label']=torch.tensor(1)
-            data_idx.append(outlier_idx[i])
-
         # Subset dataset to a few classes
         self.data = Subset(self.data, sorted(data_idx))
 
         # Make corpus and set encoder
         text_corpus = [row['text'] for row in datasets_iterator(self.data)]
-        
         if tokenizer == 'spacy':
             self.encoder = SpacyEncoder(text_corpus, min_occurrences=3, append_eos=append_eos)
         if tokenizer == 'bert':
@@ -89,7 +103,7 @@ class Reuters_Dataset(TorchnlpDataset):
         for i, row in enumerate(self.data):
             row['index'] = i
 
-def reuters_dataset(directory='../data', train=True, test=False, clean_txt=False):
+def reuters_dataset(directory, train, test, clean_txt):
     """
     Load the Reuters-21578 dataset.
 

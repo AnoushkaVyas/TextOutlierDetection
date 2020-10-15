@@ -5,7 +5,7 @@ import torch.nn as nn
 class MyEmbedding(nn.Embedding):
     """Embedding base class."""
 
-    def __init__(self, vocab_size, embedding_size, update_embedding=False, reduction='none', use_tfidf_weights=False,
+    def __init__(self, vocab_size, embedding_size, update_embedding=True, reduction='none', use_tfidf_weights=False,
                  normalize=False):
         super().__init__(vocab_size, embedding_size)
 

@@ -16,20 +16,20 @@ class SelfAttention(nn.Module):
         self.W2 = nn.Linear(attention_size, n_attention_heads, bias=False)
 
     def forward(self, hidden):
-        # hidden.shape = (sentence_length, dataset_size, hidden_size)
+        # hidden.shape = (sentence_length, batch_size, hidden_size)
 
-        # Change to hidden.shape = (dataset_size, sentence_length, hidden_size)
+        # Change to hidden.shape = (batch_size, sentence_length, hidden_size)
         hidden = hidden.transpose(0, 1)
 
         x = torch.tanh(self.W1(hidden))
-        # x.shape = (dataset_size, sentence_length, attention_size)
+        # x.shape = (batch_size, sentence_length, attention_size)
 
         x = F.softmax(self.W2(x), dim=1)  # softmax over sentence_length
-        # x.shape = (dataset_size, sentence_length, n_attention_heads)
+        # x.shape = (batch_size, sentence_length, n_attention_heads)
 
         A = x.transpose(1, 2)
         M = A @ hidden
-        # A.shape = (dataset_size, n_attention_heads, sentence_length)
-        # M.shape = (dataset_size, n_attention_heads, hidden_size)
+        # A.shape = (batch_size, n_attention_heads, sentence_length)
+        # M.shape = (batch_size, n_attention_heads, hidden_size)
 
         return M, A
