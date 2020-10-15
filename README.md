@@ -39,10 +39,17 @@ The following are examples on how to run experiments on
 cd <path-to-CVDD-PyTorch-directory>
 ```
 # activate virtual environment
+
+```
 source myenv/bin/activate  # or 'source activate myenv' for conda
+```
 
 # change to source directory
+```
 cd src
+```
 
 # run experiment
+```
 python3 main.py reuters cvdd_Net ../log/test_reuters ../data/reuters0.pt
+```
