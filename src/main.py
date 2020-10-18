@@ -35,7 +35,7 @@ from cvdd import CVDD
               help='Sets the number of OpenMP threads used for parallelizing CPU operations')
 @click.option('--outlier_class', type=int, default=0,
               help='Specify the outlier class of the dataset (all other classes are considered anomalous).')
-@click.option('--clusters', type=int, default=10,
+@click.option('--clusters', type=int, default=4,
               help='Number of clusters in regular data')
 
 def main(dataset_name, net_name, xp_path, data_path, load_model, device, seed, tokenizer, clean_txt,

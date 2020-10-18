@@ -26,8 +26,10 @@ class CVDDNet(BaseNet):
         self.clusters=clusters
 
         #MLP Layer
-        self.fc=nn.Linear(self.hidden_size*self.n_attention_heads,self.clusters)
-        self.reset_param(self.fc.weight)
+        self.fc1=nn.Linear(self.hidden_size*self.n_attention_heads,100)
+        self.reset_param(self.fc1.weight)
+        self.fc2=nn.Linear(100,self.clusters)
+        self.reset_param(self.fc2.weight)
 
     def reset_param(self,t):
         nn.init.kaiming_normal_(t.data)
@@ -44,6 +46,6 @@ class CVDDNet(BaseNet):
         # M.shape = (batch_size, n_attention_heads, hidden_size)
 
         concat_M=M.flatten(1)
-        membership = F.softmax(self.fc(concat_M), dim=1)
+        membership = F.softmax(self.fc2(F.dropout(F.elu(self.fc1(concat_M)),p=0.2)), dim=1)
 
         return membership, concat_M, A

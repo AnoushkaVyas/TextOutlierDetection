@@ -2,6 +2,7 @@ import numpy as np
 from sklearn.metrics import roc_auc_score
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
+import seaborn as sns
 
 load_results="../log/test_reuters/"
 
@@ -19,6 +20,9 @@ mid_M=np.loadtxt(filename)
 
 filename= load_results+'end_M.txt'
 end_M=np.loadtxt(filename)
+
+filename= load_results+'membership.txt'
+membership=np.loadtxt(filename)
 
 #Metrics
 
@@ -45,15 +49,42 @@ print('Recall score is for top ',perc,' percent is: ', predicted_outlier/total_o
 
 print('AUC score: ',roc_auc_score(label, outlier_scores))
 
+#calculate class
+classlabel=np.argsort(membership,axis=1)[:,-1]
+
+#Separate outlier embeddings
+def sep_outlier(X,classlabelnormal):
+    boolarroutlier= np.where(label==1,True,False)
+    boolarrnormal= np.where(label==0,True,False)
+    outlier_embd=X[boolarroutlier]
+    normal_embd= X[boolarrnormal]
+    classlabelnormal= classlabelnormal[boolarrnormal]
+    return classlabelnormal, outlier_embd, normal_embd
+
 #tSNE
 X_embedded = TSNE(n_components=2,perplexity=50).fit_transform(start_M)
-plt.scatter(X_embedded[:,0],X_embedded[:,1],c=label)
+classlabelnormal, outlier_embd, normal_embd = sep_outlier(X_embedded,classlabel)
+plt.figure(figsize=(15,15))
+plt.scatter(outlier_embd[:,0],outlier_embd[:,1], c='red',label='Outliers')
+plt.scatter(normal_embd[:,0],normal_embd[:,1], c=classlabelnormal)
+plt.legend()
 plt.savefig(load_results+'tsne_start.png')
+plt.show()
 
 X_embedded = TSNE(n_components=2,perplexity=50).fit_transform(mid_M)
-plt.scatter(X_embedded[:,0],X_embedded[:,1],c=label)
+classlabelnormal, outlier_embd, normal_embd = sep_outlier(X_embedded,classlabel)
+plt.figure(figsize=(15,15))
+plt.scatter(outlier_embd[:,0],outlier_embd[:,1], c='red',label='Outliers')
+plt.scatter(normal_embd[:,0],normal_embd[:,1], c=classlabelnormal)
+plt.legend()
 plt.savefig(load_results+'tsne_mid.png')
+plt.show()
 
 X_embedded = TSNE(n_components=2,perplexity=50).fit_transform(end_M)
-plt.scatter(X_embedded[:,0],X_embedded[:,1],c=label)
+classlabelnormal, outlier_embd, normal_embd = sep_outlier(X_embedded,classlabel)
+plt.figure(figsize=(15,15))
+plt.scatter(outlier_embd[:,0],outlier_embd[:,1], c='red', label='Outliers')
+plt.scatter(normal_embd[:,0],normal_embd[:,1], c=classlabelnormal)
+plt.legend()
 plt.savefig(load_results+'tsne_end.png')
+plt.show()

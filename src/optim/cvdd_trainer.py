@@ -19,17 +19,17 @@ class CVDDTrainer(BaseTrainer):
     def __init__(self,device: str = 'cuda', n_jobs_dataloader: int = 0):
         super().__init__( device, n_jobs_dataloader)
 
-        self.lambda_p = 0.1
+        self.lambda_p = 1.0
         self.alpha=1.0
-        self.n_epochs=5
-        self.max_epoch=2
-        self.min_epoch=2
-        self.lr_max= 0.001
-        self.lr_min= 0.001
-        self.lr_milestones_max= [2]
-        self.lr_milestones_min= [2]
-        self.weight_decay_max= 0.5e-4
-        self.weight_decay_min= 0.5e-4
+        self.n_epochs=200
+        self.max_epoch=5
+        self.min_epoch=10
+        self.lr_max= 0.0001
+        self.lr_min= 0.0001
+        self.lr_milestones_max= [100]
+        self.lr_milestones_min= [100]
+        self.weight_decay_max= 0.5e-6
+        self.weight_decay_min= 0.5e-6
         self.gamma_max= 0.1
         self.gamma_min= 0.1
         self.save_results='../log/test_reuters/'
@@ -87,6 +87,7 @@ class CVDDTrainer(BaseTrainer):
         # losses
         max_loss=[]
         min_loss=[]
+        penalty_loss=[]
 
         for epoch in range(self.n_epochs):
 
@@ -104,7 +105,7 @@ class CVDDTrainer(BaseTrainer):
             for data in data_loader:
                 _, text_batch, label_batch, classlabel_batch,_ = data
                 text_batch = text_batch.to(self.device)
-
+                
                 for minepoch in range(self.min_epoch):
 
                     #Zero the network parameter gradients
@@ -143,6 +144,7 @@ class CVDDTrainer(BaseTrainer):
 
                     old_loss_3=loss_3
                     loss_3= (betak.T @ loss_3).squeeze()
+                    penalty_loss.append(loss_3)
                     lossmin= loss_P+loss_1_2+loss_3
 
                     lossmin.backward()
@@ -154,6 +156,7 @@ class CVDDTrainer(BaseTrainer):
                             betak[l] *= 2
 
                     min_loss.append(loss_1_2)
+                    max_loss.append(np.nan)
 
                 for maxepoch in range(self.max_epoch):
 
@@ -176,7 +179,7 @@ class CVDDTrainer(BaseTrainer):
                     flag=0
                     for l in range(clusters):
                         if maxepoch>0 and beta_update[l]==1:
-                            if  loss_3[l] >= 1.2*old_loss_3[l]:
+                            if  loss_3[l] >= 1.2* old_loss_3[l]:
                                 flag=1
                                 beta_update[l] = 0
                                 betak[l] /= 2
@@ -187,6 +190,7 @@ class CVDDTrainer(BaseTrainer):
 
                     old_loss_3=loss_3
                     loss_3= (betak.T @ loss_3).squeeze()
+                    penalty_loss.append(loss_3)
                     lossmax = loss_3-loss_1_2
 
                     lossmax.backward()
@@ -198,6 +202,7 @@ class CVDDTrainer(BaseTrainer):
                             betak[l] *= 2
 
                     max_loss.append(loss_1_2)
+                    min_loss.append(np.nan)
 
                 # Save embeddings
                 if epoch ==0:
@@ -242,11 +247,21 @@ class CVDDTrainer(BaseTrainer):
         filename= self.save_results+"maxloss.txt"
         np.savetxt(filename, np.array(max_loss))
 
+        filename= self.save_results+"penaltyloss.txt"
+        np.savetxt(filename, np.array(penalty_loss))
+
 
         # Plotting Loss
+        plt.figure(figsize=(15,15))
         plt.plot(max_loss,label='MaxLoss')
         plt.plot(min_loss,label='MinLoss')
         plt.legend()
         plt.savefig(self.save_results+'loss.png')
+        plt.show()
+
+        plt.figure(figsize=(15,15))
+        plt.plot(penalty_loss)
+        plt.savefig(self.save_results+'penaltyloss.png')
+        plt.show()
 
         return net
